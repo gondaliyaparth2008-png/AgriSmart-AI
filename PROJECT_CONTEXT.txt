@@ -1,0 +1,497 @@
+# ==============================================================================
+#                      AGRISMART AI — PROJECT CONTEXT PRIMER
+# ==============================================================================
+# This document provides a complete, 100% self-contained technical overview of the
+# AgriSmart AI project. It serves as an authoritative context primer for AI models,
+# software architects, and developers to understand the entire application without
+# scanning the underlying source code.
+# ==============================================================================
+
+--------------------------------------------------------------------------------
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+• Project Name: AgriSmart AI
+• Core Purpose: An AI-powered agricultural intelligence platform designed to empower
+  smallholder farmers and agronomists with instant crop disease detection, personalized
+  irrigation and sustainability advisory, live weather risk intelligence, and a
+  multilingual GenAI agricultural assistant.
+• Problem Solved:
+  1. Crop Disease Loss: Farmers often identify crop diseases too late or misdiagnose
+     them, leading to total yield destruction and excessive/incorrect chemical usage.
+  2. Inefficient Water Resource Usage: Unplanned irrigation wastes precious groundwater
+     or stresses crops through over/under-watering.
+  3. Lack of Accessible Agronomic Expertise: Rural farmers lack real-time access to
+     localized agronomic guidance in their native regional languages.
+• Target Users:
+  - Smallholder farmers in India and South Asia.
+  - Agricultural extension officers and Krishi Vigyan Kendra (KVK) advisors.
+  - Commercial farm managers seeking automated, data-driven crop management.
+• Key Business & Technical Objectives:
+  - Deliver rapid (<50ms local, <500ms remote) leaf disease diagnostic results.
+  - Provide fallback modes (Mock ML, Mock Weather, Mock Assistant) so the API server
+    never crashes and works out-of-the-box even without third-party API keys.
+  - Support multi-driver database operations (SQLite for local zero-setup dev,
+    PostgreSQL/Supabase for production) with full async I/O.
+  - Expose clean, fully-typed REST endpoints with interactive Swagger/ReDoc docs.
+
+
+--------------------------------------------------------------------------------
+2. COMPLETE TECH STACK & DEPENDENCIES
+--------------------------------------------------------------------------------
+• Backend Framework & Runtime:
+  - Python: 3.10+ (compatible with Python 3.10 - 3.12)
+  - Framework: FastAPI (v0.115.0) — Async ASGI web application framework
+  - ASGI Server: Uvicorn standard (v0.30.6) with multi-worker production support
+  - Data Validation & Settings: Pydantic v2 (v2.8.2) & Pydantic-Settings (v2.4.0)
+  - Multipart Handling: python-multipart (v0.0.9)
+
+• Computer Vision & Machine Learning:
+  - Core Image Preprocessing: Pillow / PIL (v10.4.0) — RGB conversion, resize to 224x224
+  - Multi-Backend Inference Support (auto-detected by model file extension):
+    * ONNX Runtime: onnxruntime (v1.19.0) for `.onnx` models (Recommended)
+    * PyTorch: torch (v2.4.0) & torchvision (v0.19.0) for `.pt` / `.pth` models
+    * TensorFlow / Keras: tensorflow (v2.17.0) for `.h5` models
+  - Built-in Mock Inference Engine: MD5 hash-based deterministic predictor fallback
+    (38 PlantVillage disease classes across 14 crop species)
+
+• Generative AI & External APIs:
+  - GenAI SDK: official Google GenAI SDK `google-genai` (>=1.0.0)
+  - LLM Model: `gemini-1.5-flash` (fast/cost-efficient) or `gemini-1.5-pro`
+  - Weather API: OpenWeatherMap REST API (v2.5) via `httpx` async HTTP client
+  - Sync Utilities: `requests` (v2.32.3)
+
+• Database Layer & ORM:
+  - ORM: Async SQLAlchemy 2.x (v2.0.35) using 2.0 DeclarativeBase with `Mapped` typing
+  - Drivers:
+    * Local Dev: `aiosqlite` (v0.20.0) → SQLite (`agrismart.db`)
+    * Production / Supabase: `asyncpg` (v0.31.0) → PostgreSQL
+  - Supabase Integration: `supabase` Python SDK (v2.9.1) for Auth, Storage, and Realtime
+
+• Frontend & Client Layer:
+  - Currently Headless: The repository currently consists of the FastAPI backend service.
+  - CORS Configured: Open-access CORS enabled (`["*"]`) for rapid hackathon client integration
+    (Web, Mobile App, or Kiosk).
+
+• Testing & CI/CD:
+  - Test Framework: `pytest` (v8.3.2) & `pytest-asyncio` (v0.23.8)
+  - HTTP Test Client: `fastapi.testclient.TestClient` (backed by `httpx`)
+
+
+--------------------------------------------------------------------------------
+3. ARCHITECTURE & REPOSITORY STRUCTURE
+--------------------------------------------------------------------------------
+
+### ASCII Directory & File Tree
+
+```
+AgriSmart-AI/
+├── .env                        # Local environment secrets & config overrides
+├── database_schema_report.md   # SQL creation script & documentation for Supabase
+├── PROJECT_CONTEXT.txt         # Comprehensive project primer (this file)
+└── backend/
+    ├── .env.example            # Environment template with defaults & placeholders
+    ├── .gitignore              # Git ignore rules for venv, DB, caches, secrets
+    ├── agrismart.db            # Local SQLite database (created on first run)
+    ├── pyproject.toml          # Python project metadata & tool configurations
+    ├── requirements.txt        # Full Python dependency list with locked versions
+    ├── run.py                  # CLI entrypoint to start Uvicorn with auto-reload/workers
+    ├── models/
+    │   └── .gitkeep            # Directory for trained ML model artifacts (.onnx/.pt/.h5)
+    ├── app/
+    │   ├── __init__.py         # Package marker
+    │   ├── main.py             # FastAPI app factory, CORS, lifespan, health routes
+    │   ├── api/
+    │   │   ├── __init__.py
+    │   │   └── v1/
+    │   │       ├── __init__.py
+    │   │       ├── router.py   # Aggregates all v1 API feature routers
+    │   │       └── endpoints/
+    │   │           ├── __init__.py
+    │   │           ├── advisory.py   # POST /api/v1/advisory/recommend (Irrigation)
+    │   │           ├── assistant.py  # POST /api/v1/assistant/query (Gemini AI)
+    │   │           ├── disease.py    # POST /api/v1/disease/predict, GET /classes
+    │   │           ├── health.py     # GET /api/v1/health/db, GET /health/supabase
+    │   │           └── weather.py    # POST /api/v1/weather/risk, GET /weather/current
+    │   ├── core/
+    │   │   ├── __init__.py
+    │   │   ├── config.py             # Centralised Pydantic settings & startup warnings
+    │   │   └── supabase_config.py    # Supabase connection setup & credential guides
+    │   ├── db/
+    │   │   ├── __init__.py
+    │   │   ├── base.py               # SQLAlchemy DeclarativeBase
+    │   │   └── session.py            # Async engine, AsyncSessionLocal, init_db()
+    │   ├── models/
+    │   │   ├── __init__.py
+    │   │   ├── advisory_log.py       # AdvisoryLog ORM model (advisory_logs table)
+    │   │   └── prediction_log.py     # PredictionLog ORM model (prediction_logs table)
+    │   ├── schemas/
+    │   │   ├── __init__.py
+    │   │   ├── advisory.py           # Pydantic schemas for Advisory, Weather, Assistant
+    │   │   └── disease.py            # Pydantic schemas for Disease Prediction & Errors
+    │   └── services/
+    │       ├── __init__.py
+    │       ├── labels.py             # 18-class hackathon metadata & guidance database
+    │       ├── model_service.py      # ML pipeline (ONNX/PyTorch/Keras + Mock engine)
+    │       ├── recommendation.py     # Rule-based irrigation advisory & risk math
+    │       └── weather_service.py    # OpenWeatherMap API client + mock weather generator
+    └── tests/
+        ├── __init__.py
+        └── test_api.py               # 20+ automated pytest test cases covering all routes
+```
+
+### Data Flow Diagram
+
+```
++------------------------------------------------------------------------------+
+|                             CLIENT / FRONTEND                                |
+|           (Web UI / Mobile App / Regional Agricultural Kiosk)               |
++------------------------------------------------------------------------------+
+       |                         |                        |             |
+  (Image Upload)         (Field Sensor JSON)       (Weather Query) (Farmer Query)
+       |                         |                        |             |
+       v                         v                        v             v
+POST /disease/predict  POST /advisory/recommend  POST /weather/risk POST /assistant/query
++------------------------------------------------------------------------------+
+|                             FASTAPI APP (v1)                                 |
+|                       (app/main.py & router.py)                              |
++------------------------------------------------------------------------------+
+       |                         |                        |             |
+       v                         v                        v             v
++------------------+   +--------------------+   +---------------+ +------------------+
+|  model_service   |   |   recommendation   |   |weather_service| |    _call_gemini   |
+| (ONNX/PyTorch/   |   | (Agronomic Engine: |   | (OpenWeather- | | (Google Gemini   |
+| Keras / Mock)    |   | Soil/pH/Moisture)  |   |   Map API)    | |  1.5 Flash SDK)  |
++------------------+   +--------------------+   +---------------+ +------------------+
+       |                         |                        |             |
+       |  (Audit Logging)        |  (Audit Logging)       |             |
+       v                         v                        |             |
++---------------------------------------------------+     |             |
+|                 ASYNC SQLALCHEMY                  |     |             |
+|           (app/db/session.py AsyncSession)        |     |             |
++---------------------------------------------------+     |             |
+       |                                                  |             |
+       v                                                  v             v
++------------------------------------+          +----------------------------------+
+|         DATABASE STORAGE           |          |        EXTERNAL SERVICES         |
+|  - SQLite (agrismart.db)           |          |  - OpenWeatherMap API            |
+|  - PostgreSQL (Supabase DB)        |          |  - Google Gemini AI API          |
+|    Tables:                         |          +----------------------------------+
+|    * prediction_logs               |
+|    * advisory_logs                 |
++------------------------------------+
+```
+
+
+--------------------------------------------------------------------------------
+4. CORE FEATURES IMPLEMENTED SO FAR
+--------------------------------------------------------------------------------
+
+### 1. Plant Leaf Disease Detection Module (`/api/v1/disease`)
+- **Image Upload & Validation**: Accepts multipart leaf images (`image/jpeg`, `image/png`, `image/webp`, `image/bmp`, `image/tiff`) up to 10 MB.
+- **Multi-Backend Inference**:
+  * Real inference auto-dispatches to ONNX Runtime, PyTorch, or TensorFlow/Keras based on `.onnx`, `.pt`, `.h5` file extensions.
+  * Graceful Fallback: If `MODEL_PATH` is unconfigured or file is absent, deterministically generates mock predictions using MD5 image byte hashes.
+- **Rich Agronomic Metadata Enrichment**: Maps model outputs to 38 PlantVillage disease classes across 14 crops (Apple, Blueberry, Cherry, Corn, Grape, Orange, Peach, Pepper, Potato, Raspberry, Soybean, Squash, Strawberry, Tomato).
+- **Structured Recommendations**: Returns display name, host crop, disease description, severity level (High/Moderate/Low/None), ordered step-by-step precautions, and top runner-up alternative predictions.
+- **Audit Logging**: Persists every prediction attempt asynchronously to `prediction_logs`.
+
+### 2. Irrigation & Sustainability Advisory Module (`/api/v1/advisory`)
+- **Field Parameter Processing**: Accepts crop type, growth stage (germination, seedling, vegetative, flowering, fruiting, harvest), soil type (clay, sandy, loamy, silty, peaty, chalky, saline), pH, moisture %, temperature, and 24h rain probability.
+- **Rule-Based Agronomic Engine**:
+  * Calculates whether irrigation is required today.
+  * Recommends optimal irrigation method (Drip, Sprinkler, Flood, Furrow).
+  * Computes a 3-day rolling irrigation schedule (duration in minutes and L/m² water volume).
+- **Sustainability Scoring (0-100)**: Evaluates composite water efficiency, soil pH health, irrigation method fit, and temperature stress.
+- **Agronomic Insights**: Generates tailored soil health notes, risk flags (heat stress, waterlogging), and prioritized actionable tips.
+- **Audit Logging**: Persists every advisory request to `advisory_logs`.
+
+### 3. Weather Intelligence & Risk Module (`/api/v1/weather`)
+- **Live OpenWeatherMap Integration**: Fetches real-time current conditions and multi-day forecasts via OpenWeatherMap REST API using `httpx`.
+- **Mock Weather Fallback**: Generates realistic, location-seeded weather forecasts if `WEATHER_API_KEY` is missing or API limits are hit.
+- **Weather Risk Scoring**: Computes daily and aggregate risk indices (Low, Moderate, High, Severe) based on heat stress (>37°C), high humidity (>80%), heavy rain (>20mm), and high wind (>35 km/h).
+- **Actionable Risk Alerts**: Translates current weather parameters into immediate crop management advice (e.g., delaying chemical sprays during rain/high wind).
+
+### 4. Multilingual GenAI Farmer Assistant Module (`/api/v1/assistant`)
+- **Google Gemini Integration**: Powered by `gemini-1.5-flash` using official `google-genai` SDK.
+- **Multilingual Support**: Supports 9 languages: English (`en`), Hindi (`hi`), Telugu (`te`), Tamil (`ta`), Kannada (`kn`), Marathi (`mr`), Bengali (`bn`), Punjabi (`pa`), Gujarati (`gu`).
+- **Context Grounding**: Accepts optional context (e.g., output from disease detection or soil readings) to ground Gemini responses in specific field reality.
+- **Mock Knowledge Base Fallback**: Keyword-driven rule engine covering common crop problems (Late Blight, Early Blight, Yellowing, Irrigation, Pesticide safety) when API key is unconfigured.
+- **Structured Response Format**: Returns farmer-friendly answer, follow-up questions, confidence rating, cited sources, and backend attribution.
+
+### 5. System Health & Database Diagnostics (`/health`, `/ready`, `/api/v1/health`)
+- **Root Health (`/`)**: Service metadata, model mode, Gemini status, weather status, documentation links.
+- **Kubernetes Probes**: Liveness (`/health`) and Readiness (`/ready`) probes.
+- **Database Probe (`/api/v1/health/db`)**: Safe `SELECT 1` execution returning driver type (`sqlite+aiosqlite` vs `postgresql+asyncpg`) without leaking credentials.
+- **Supabase Probe (`/api/v1/health/supabase`)**: Validates presence of Supabase URL and Publishable Key without exposing secret values.
+
+### Work-in-Progress (WIP) & Extensibility Hooks
+- **Real ML Model File**: Currently using Mock ML engine until a trained `.onnx` model binary is placed in `backend/models/`.
+- **Alembic Database Migrations**: Database schema initialization currently uses SQLAlchemy `create_all` on startup. Alembic can be added for complex schema migration pipelines.
+- **Frontend Client UI**: The backend is complete and verified with automated test suites; frontend UI components can consume the REST API directly.
+
+
+--------------------------------------------------------------------------------
+5. API & DATA CONTRACTS
+--------------------------------------------------------------------------------
+
+### Endpoints Overview
+
+| Method | Endpoint Path | Summary / Purpose | Request Payload | Response Model |
+|---|---|---|---|---|
+| `GET` | `/` | Root service health & overview | None | `Dict[str, Any]` |
+| `GET` | `/health` | Liveness probe | None | `{"status": "ok"}` |
+| `GET` | `/ready` | Readiness probe | None | `{"status": "ready", ...}` |
+| `GET` | `/api/v1/health/db` | Database connectivity test | None | `{"status": "ok", "backend": ...}` |
+| `GET` | `/api/v1/health/supabase` | Supabase config test | None | `{"status": "ok", "ready": ...}` |
+| `GET` | `/api/v1/disease/classes` | List 38 disease classes | None | `List[Dict[str, Any]]` |
+| `POST`| `/api/v1/disease/predict` | Predict disease from image | `multipart/form-data` (`file`) | `DiseasePredictionResponse` |
+| `POST`| `/api/v1/advisory/recommend`| Irrigation & sustainability plan | `AdvisoryRequest` (JSON) | `AdvisoryResponse` |
+| `GET` | `/api/v1/weather/current` | Current weather & risk alert | Query params: `location`, `crop` | `Dict[str, Any]` |
+| `POST`| `/api/v1/weather/risk` | Weather risk forecast analysis | `WeatherRiskRequest` (JSON) | `WeatherRiskResponse` |
+| `POST`| `/api/v1/assistant/query` | Ask GenAI farmer assistant | `AssistantRequest` (JSON) | `AssistantResponse` |
+
+---
+
+### Detailed Schema Data Contracts
+
+#### 1. Disease Detection (`POST /api/v1/disease/predict`)
+- **Request**: `multipart/form-data` with key `file` (Binary image data, max 10MB)
+- **Response** (`DiseasePredictionResponse`):
+```json
+{
+  "class_name": "Tomato___Late_blight",
+  "confidence": 0.923,
+  "severity": "High",
+  "is_healthy": false,
+  "display_name": "Late Blight",
+  "crop_name": "Tomato",
+  "description": "Late blight is a destructive disease caused by Phytophthora infestans...",
+  "precautions": [
+    {
+      "step": 1,
+      "action": "Remove infected tissue",
+      "detail": "Bag and destroy all affected leaves and stems immediately."
+    }
+  ],
+  "alternatives": [
+    { "class_name": "Tomato___Early_blight", "confidence": 0.051 }
+  ],
+  "model_version": "mock-v1.0",
+  "processing_time_ms": 48.3
+}
+```
+
+#### 2. Advisory Recommendation (`POST /api/v1/advisory/recommend`)
+- **Request** (`AdvisoryRequest`):
+```json
+{
+  "crop_name": "Tomato",
+  "crop_stage": "flowering",
+  "soil_type": "loamy",
+  "ph": 6.5,
+  "moisture": 42.0,
+  "temperature": 28.5,
+  "rain_prob": 0.25,
+  "current_irrigation_method": "drip"
+}
+```
+- **Response** (`AdvisoryResponse`):
+```json
+{
+  "crop_name": "Tomato",
+  "crop_stage": "flowering",
+  "should_irrigate_today": true,
+  "recommended_method": "drip",
+  "irrigation_schedule": [
+    {
+      "day_offset": 0,
+      "duration_minutes": 30,
+      "water_volume_liters_per_sqm": 3.5,
+      "notes": "Apply in early morning to reduce evaporation."
+    }
+  ],
+  "sustainability_score": 74.5,
+  "sustainability_rating": "Good",
+  "soil_health_notes": ["pH 6.5 is within the optimal range for Tomato. ✓"],
+  "risk_flags": [],
+  "actionable_tips": ["Irrigate today using drip method."]
+}
+```
+
+#### 3. Weather Risk (`POST /api/v1/weather/risk`)
+- **Request** (`WeatherRiskRequest`):
+```json
+{
+  "location": "Hyderabad",
+  "crop_name": "Tomato",
+  "days_ahead": 3
+}
+```
+- **Response** (`WeatherRiskResponse`):
+```json
+{
+  "location": "Hyderabad",
+  "forecast_days": 3,
+  "overall_risk_level": "Moderate",
+  "risk_index": 25.0,
+  "daily_forecast": [
+    {
+      "date": "2026-09-14",
+      "temp_max_c": 34.5,
+      "temp_min_c": 22.1,
+      "humidity_pct": 65.0,
+      "rain_mm": 2.0,
+      "wind_kph": 12.0,
+      "condition": "Cloudy",
+      "day_risk_score": 15.0
+    }
+  ],
+  "recommendations": ["Overall 3-day risk for Hyderabad is classified as Moderate."],
+  "data_source": "openweathermap"
+}
+```
+
+#### 4. AI Assistant Query (`POST /api/v1/assistant/query`)
+- **Request** (`AssistantRequest`):
+```json
+{
+  "query": "My tomato leaves have dark spots and are turning yellow. What should I do?",
+  "language": "en",
+  "context": "Disease detected: Tomato Late Blight. Confidence: 0.92."
+}
+```
+- **Response** (`AssistantResponse`):
+```json
+{
+  "answer": "Your plants show signs consistent with Late Blight...",
+  "language": "en",
+  "follow_up_questions": [
+    "Are the lesions spreading to stems and fruit as well?"
+  ],
+  "sources": [
+    {
+      "title": "ICAR Late Blight Management Guide",
+      "relevance": "Fungicide schedules for Phytophthora infestans"
+    }
+  ],
+  "confidence": "high",
+  "powered_by": "Google Gemini (gemini-1.5-flash)"
+}
+```
+
+---
+
+### Database Schemas (SQLAlchemy / PostgreSQL / SQLite)
+
+#### Table 1: `prediction_logs`
+- **Purpose**: Stores an audit log of disease prediction requests.
+- **Columns**:
+  * `id`: `INTEGER`, Primary Key, Auto-increment (`SERIAL`)
+  * `image_name`: `VARCHAR(255)`, Nullable — Original uploaded filename
+  * `predicted_disease`: `VARCHAR(128)`, NOT NULL, Indexed — Output label
+  * `confidence`: `FLOAT` / `DOUBLE PRECISION`, NOT NULL — Confidence score (0.0 – 1.0)
+  * `is_healthy`: `BOOLEAN`, NOT NULL, Default `FALSE` — Plant health status
+  * `severity`: `VARCHAR(16)`, Nullable — Severity level ("None", "Low", "Moderate", "High")
+  * `model_version`: `VARCHAR(32)`, Nullable — Model/backend identifier
+  * `processing_time_ms`: `FLOAT`, Nullable — Inference latency in ms
+  * `created_at`: `TIMESTAMP WITH TIME ZONE`, NOT NULL, Default `now()` / UTC
+
+#### Table 2: `advisory_logs`
+- **Purpose**: Stores an audit log of irrigation advisory queries.
+- **Columns**:
+  * `id`: `INTEGER`, Primary Key, Auto-increment (`SERIAL`)
+  * `crop_type`: `VARCHAR(64)`, NOT NULL, Indexed — Crop name
+  * `crop_stage`: `VARCHAR(32)`, Nullable — Growth stage
+  * `soil_type`: `VARCHAR(32)`, Nullable — Soil classification
+  * `ph`: `FLOAT`, Nullable — Soil pH (0 – 14)
+  * `moisture`: `FLOAT`, Nullable — Soil moisture % (0 – 100)
+  * `temperature`: `FLOAT`, Nullable — Temperature in °C
+  * `rain_prob`: `FLOAT`, Nullable — Rain probability (0.0 – 1.0)
+  * `should_irrigate`: `BOOLEAN`, Nullable — Recommendation result
+  * `sustainability_score`: `FLOAT`, Nullable — Computed score (0 – 100)
+  * `recommendation`: `TEXT`, Nullable — Top actionable recommendation summary
+  * `created_at`: `TIMESTAMP WITH TIME ZONE`, NOT NULL, Default `now()` / UTC
+
+
+--------------------------------------------------------------------------------
+6. CURRENT RUNTIME & SETUP INSTRUCTIONS
+--------------------------------------------------------------------------------
+
+### Prerequisites
+- Python 3.10, 3.11, or 3.12 installed.
+- PowerShell or Terminal on Windows / Linux / macOS.
+
+### Step-by-Step Local Setup
+
+1. **Navigate to the Backend Directory**:
+   ```bash
+   cd e:\AgriSmart-AI\backend
+   ```
+
+2. **Create & Activate Virtual Environment**:
+   - On Windows (PowerShell):
+     ```powershell
+     python -m venv venv
+     .\venv\Scripts\Activate.ps1
+     ```
+   - On Linux/macOS:
+     ```bash
+     python3 -m venv venv
+     source venv/bin/activate
+     ```
+
+3. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Environment Configuration**:
+   - Copy `.env.example` to `.env` in project root or backend directory:
+     ```bash
+     cp .env.example .env
+     ```
+   - *Default Zero-Config Mode*: Out of the box, `DATABASE_URL` defaults to local SQLite (`agrismart.db`), ML inference uses the mock engine, and weather/assistant services use mock fallbacks if third-party keys are absent.
+
+5. **Run Database Initialization & Server**:
+   - Option A (Using Uvicorn via `run.py` launcher):
+     ```bash
+     python run.py
+     ```
+   - Option B (Direct Uvicorn command):
+     ```bash
+     python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+     ```
+
+6. **Run Automated Test Suite**:
+   ```bash
+   pytest tests/ -v
+   ```
+
+7. **Access Interactive API Documentation**:
+   - Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - ReDoc UI: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+   - OpenAPI JSON Schema: [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
+
+---
+
+### Key Environment Variables Summary (`.env`)
+
+| Variable Key | Required? | Default Value | Description |
+|---|---|---|---|
+| `APP_NAME` | Optional | `"AgriSmart AI"` | Application title shown in docs |
+| `APP_VERSION` | Optional | `"1.0.0"` | App version string |
+| `DEBUG` | Optional | `true` | Enables debug logging & SQL output |
+| `DATABASE_URL` | Optional | `sqlite+aiosqlite:///./agrismart.db` | SQLAlchemy connection string. Set to Supabase `postgresql+asyncpg://...` for production PostgreSQL. |
+| `SUPABASE_URL` | Optional | `None` | Supabase project base URL |
+| `SUPABASE_PUBLISHABLE_KEY` | Optional | `None` | Supabase publishable/anon key |
+| `MODEL_PATH` | Optional | `""` | Path to trained `.onnx`, `.pt`, `.h5` file. Blank activates mock inference. |
+| `MODEL_INPUT_SIZE` | Optional | `224` | Expected image height/width |
+| `CONFIDENCE_THRESHOLD` | Optional | `0.45` | Minimum score before returning fallback |
+| `GEMINI_API_KEY` | Optional | `None` | Google AI Studio Gemini API key. Blank activates mock assistant engine. |
+| `GEMINI_MODEL` | Optional | `"gemini-1.5-flash"` | Gemini model selection |
+| `WEATHER_API_KEY` | Optional | `None` | OpenWeatherMap API key. Blank activates mock weather service. |
+| `WEATHER_API_BASE_URL` | Optional | `"https://api.openweathermap.org/data/2.5"` | Weather service REST base URL |
+
+# ==============================================================================
+#                              END OF FILE
+# ==============================================================================

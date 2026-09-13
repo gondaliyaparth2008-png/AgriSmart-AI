@@ -1,0 +1,9 @@
+# Drop your trained model weights here.
+# Supported formats: .onnx (recommended), .pt / .pth (PyTorch), .h5 (Keras)
+#
+# Expected filename (set MODEL_PATH in .env to match):
+#   crop_disease_model.onnx   ← ONNX Runtime (cross-platform, fastest)
+#   best_model.pt             ← PyTorch checkpoint
+#   plant_disease_model.h5    ← Keras/TensorFlow SavedModel
+#
+# This directory is gitignored for binary blobs — only .gitkeep is tracked.
