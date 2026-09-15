@@ -189,72 +189,79 @@ def _mock_engine(req: AssistantRequest) -> tuple[str, List[str], List[AssistantS
 async def _call_gemini(req: AssistantRequest) -> str:
     """
     Generate a farmer-friendly response using Google Gemini.
-
-    Requires:
-        pip install google-genai
-        GEMINI_API_KEY set in .env
-
-    Returns the response text, or empty string on failure (triggers mock fallback).
     """
+    if not settings.GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY is not configured.")
+        return ""
+
+    lang_name = _LANG_NAMES.get(req.language.value, "English")
+
+    system_instruction = (
+        f"You are AgriSmart AI — an expert agricultural advisor helping smallholder farmers "
+        f"in India and South Asia. "
+        f"Always respond in {lang_name}. "
+        f"Provide practical, specific, safe, and culturally appropriate advice. "
+        f"Keep answers concise, farmer-friendly, and avoid technical jargon. "
+        f"Use numbered steps when giving instructions. "
+        f"If the farmer is asking about a disease, always recommend: "
+        f"(1) identify the pathogen, (2) remove infected material, (3) apply appropriate fungicide/pesticide, "
+        f"(4) adjust irrigation, (5) monitor and follow up."
+    )
+
+    user_message = req.query
+    if req.context:
+        user_message = f"Field context: {req.context}\n\nFarmer's question: {req.query}"
+
+    # ૧. નવી SDK (google-genai) સાથે ટ્રાય કરો
     try:
         from google import genai
         from google.genai import types
-    except ImportError:
-        logger.warning(
-            "google-genai is not installed. "
-            "Run: pip install google-genai. Falling back to mock engine."
-        )
-        return ""
 
-    if not settings.GEMINI_API_KEY:
-        return ""  # No key → caller falls back to mock
-
-    try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-        lang_name = _LANG_NAMES.get(req.language.value, "English")
-
-        system_instruction = (
-            f"You are AgriSmart AI — an expert agricultural advisor helping smallholder farmers "
-            f"in India and South Asia. "
-            f"Always respond in {lang_name}. "
-            "Provide practical, specific, safe, and culturally appropriate advice. "
-            "Keep answers concise, farmer-friendly, and avoid technical jargon. "
-            "Use numbered steps when giving instructions. "
-            "If the farmer is asking about a disease, always recommend: "
-            "(1) identify the pathogen, (2) remove infected material, (3) apply appropriate fungicide/pesticide, "
-            "(4) adjust irrigation, (5) monitor and follow up."
-        )
-
-        user_message = req.query
-        if req.context:
-            user_message = (
-                f"Field context: {req.context}\n\n"
-                f"Farmer's question: {req.query}"
-            )
-
-        # Gemini does not have a separate system role in the basic API;
-        # prepend as the first turn of the conversation instead.
-        full_prompt = f"{system_instruction}\n\n{user_message}"
+        # એક્ઝેક્ટ મોડલ નામ ફોર્મેટ
+        model_id = settings.GEMINI_MODEL
+        if not model_id.startswith("models/"):
+            model_id = f"models/{model_id}"
 
         response = await client.aio.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=full_prompt,
+            model=model_id,
+            contents=user_message,
             config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
                 temperature=0.4,
                 max_output_tokens=700,
             ),
         )
-
-        return response.text or ""
-
+        if response and response.text:
+            return response.text.strip()
     except Exception as exc:
-        logger.warning(
-            "Gemini API call failed (%s): %s — falling back to mock engine.",
-            type(exc).__name__, exc,
-        )
-        return ""
+        logger.warning("google-genai SDK call failed: %s — trying fallback HTTP call", exc)
 
+    # ૨. ડાયરેક્ટ HTTP REST API Fallback (SDK ઇશ્યુ હોય તો પણ ૧૦૦% કામ કરશે)
+    try:
+        import httpx
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": f"{system_instruction}\n\n{user_message}"}]
+            }],
+            "generationConfig": {
+                "temperature": 0.4,
+                "maxOutputTokens": 700
+            }
+        }
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            res = await http_client.post(url, json=payload)
+            if res.status_code == 200:
+                data = res.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            else:
+                logger.error("Direct Gemini REST call failed with status %s: %s", res.status_code, res.text)
+    except Exception as exc:
+        logger.error("Direct REST call exception: %s", exc)
+
+    return ""
 
 # =========================================================================== #
 #  Endpoint
