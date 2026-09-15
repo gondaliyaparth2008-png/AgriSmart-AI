@@ -1,0 +1,278 @@
+================================================================================
+                    AGRISMART AI — PROJECT COMPREHENSIVE ANALYSIS
+================================================================================
+Document Type   : Project Architecture & Feature Analysis Report
+Project Name    : AgriSmart AI
+Platform Type   : AI-Powered Smart Agriculture & Advisory Backend API
+Language / Base : Python 3.10+ / FastAPI / Async SQLAlchemy / Google Gemini AI
+Analysis Date   : September 2026
+Status          : Production-Ready Async Backend with Built-in Fallbacks
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & OBJECTIVE (પ્રોજેક્ટ સારાંશ અને ઉદ્દેશ્ય)
+--------------------------------------------------------------------------------
+AgriSmart AI is an end-to-end, intelligent agricultural advisory platform designed
+to bridge the gap between complex agricultural science and grassroots farming.
+
+It equips smallholder farmers, agronomists, and farm managers with:
+  1. Instant Crop Leaf Disease Detection using Computer Vision (Deep Learning).
+  2. Precision Irrigation & Nutrient Advisory calculated from real-time soil,
+     crop stage, and environmental data.
+  3. Live Weather Risk Analysis with proactive extreme weather alerts.
+  4. 24/7 Multilingual AI Agricultural Assistant powered by Google Gemini LLM.
+  5. Built-in Offline/Mock Fallback Engine allowing full functionality even
+     without internet, external API keys, or GPU hardware.
+
+Target Audience:
+  - Farmers seeking immediate disease diagnosis and localized crop advice.
+  - Agricultural extension workers (KVKs, NGOs, government officers).
+  - Agritech developers building web, mobile, or regional kiosk interfaces.
+
+
+--------------------------------------------------------------------------------
+2. CORE FEATURES & CAPABILITIES (મુખ્ય સુવિધાઓ અને કાર્યક્ષમતા)
+--------------------------------------------------------------------------------
+
+[1] CROP LEAF DISEASE DETECTION (પાક રોગ નિદાન)
+  • Analyzes leaf images uploaded by users.
+  • Multi-Engine ML Support: Automatically loads models in ONNX (.onnx),
+    PyTorch (.pt/.pth), or TensorFlow/Keras (.h5) format.
+  • 38 PlantVillage Disease Classes covering 14 major crop species:
+    - Apple, Blueberry, Cherry, Corn (Maize), Grape, Orange, Peach,
+      Bell Pepper, Potato, Raspberry, Soybean, Squash, Strawberry, Tomato.
+  • Deterministic Mock Fallback: If no heavy ML model is placed, the backend
+    uses an internal deterministic image-hashing algorithm to simulate real
+    predictions with zero server crashes.
+  • Returns disease name, confidence score, severity grade, organic/chemical
+    treatments, preventative steps, and fertilizer suggestions.
+
+[2] SMART IRRIGATION & ADVISORY ENGINE (સ્માર્ટ સિંચાઈ અને સલાહ એન્જિન)
+  • Evaluates 6 key agricultural parameters:
+    - Crop Type & Growth Stage (Vegetative, Flowering, Fruiting, etc.)
+    - Soil Moisture Percentage (%) & Soil Type (Sandy, Loamy, Clay, Black)
+    - Ambient Temperature (°C) & Humidity (%)
+  • Generates intelligent advice:
+    - Irrigation Requirement: YES / NO / REDUCED / URGENT
+    - Recommended Water Quantity (litres/hectare or mm)
+    - Optimal watering time (Early Morning / Evening)
+    - Fertilizer and Soil health guidance based on current moisture levels.
+
+[3] REAL-TIME WEATHER RISK ASSESSMENT (હવામાન જોખમ વિશ્લેષણ)
+  • Integrates with OpenWeatherMap API for live hyperlocal weather forecasting.
+  • Computes agricultural risk scores for heatwaves, heavy rainfall, frost,
+    and high humidity.
+  • Mock Weather Fallback: If no OpenWeather API key is provided, generates
+    realistic seasonal weather and risk metrics so the API always responds.
+
+[4] MULTILINGUAL GENAI AGRI-ASSISTANT (બહુભાષીય AI ખેડૂત સહાયક)
+  • Powered by Google Gemini 1.5 Flash / Gemini 1.5 Pro.
+  • Provides personalized, contextual farming advice in English, Hindi,
+    Gujarati, and other regional languages.
+  • Injects system prompts specialized in Indian agronomy, crop protection,
+    and soil nutrition.
+  • Intelligent Offline Fallback: If Gemini API key is missing or quota is
+    exhausted, provides comprehensive rule-based agricultural responses.
+
+[5] ASYNC DATABASE LOGGING & AUDIT TRAIL (ડેટાબેઝ લોગિંગ)
+  • Stores every disease prediction and advisory request with timestamps.
+  • Multi-database support:
+    - Development: Local SQLite with async I/O (`aiosqlite`).
+    - Production: PostgreSQL / Supabase with async connection pooling (`asyncpg`).
+
+
+--------------------------------------------------------------------------------
+3. TECHNICAL STACK & ARCHITECTURE (ટેકનોલોજી સ્ટેક)
+--------------------------------------------------------------------------------
+• Backend Framework       : FastAPI 0.115.0 (Modern, Fast, High-Performance Async)
+• ASGI Server             : Uvicorn 0.30.6
+• Python Version          : Python 3.10 – 3.12 compatible
+• Data Validation         : Pydantic v2.8.2 & Pydantic-Settings 2.4.0
+• Database ORM            : SQLAlchemy 2.0 (Async Declarative Base)
+• Database Drivers        : aiosqlite (SQLite) & asyncpg (PostgreSQL)
+• Cloud Database & Auth   : Supabase Python SDK 2.9.1
+• Deep Learning / ML      : ONNX Runtime (onnxruntime 1.19.0), PyTorch, TensorFlow
+• Computer Vision         : Pillow (PIL 10.4.0)
+• Generative AI           : Google GenAI SDK (google-genai >= 1.0.0, Gemini 1.5)
+• Weather API Client      : httpx 0.27.0 (Async HTTP requests)
+• Testing Suite           : pytest 8.3.2, pytest-asyncio 0.23.8
+• API Documentation       : Interactive Swagger UI (/docs) & ReDoc (/redoc)
+
+
+--------------------------------------------------------------------------------
+4. PROJECT DIRECTORY & MODULE STRUCTURE (પ્રોજેક્ટ માળખું)
+--------------------------------------------------------------------------------
+
+AgriSmart-AI/
+│
+├── .env.example                  # Template for environment configuration
+├── database_schema_report.md     # Supabase/PostgreSQL schema documentation & SQL
+├── PROJECT_CONTEXT.txt           # Comprehensive developer context guide
+├── PROJECT_ANALYSIS.txt          # This complete project analysis report
+│
+└── backend/
+    ├── run.py                    # Server startup script (Uvicorn CLI runner)
+    ├── pyproject.toml            # Project metadata & build settings
+    ├── requirements.txt          # Pinned production Python dependencies
+    ├── .gitignore                # Git ignore for venvs, DBs, models, cache
+    │
+    ├── models/                   # Directory to hold ML model weights (.onnx, .pt, .h5)
+    │   └── .gitkeep
+    │
+    ├── app/
+    │   ├── __init__.py
+    │   ├── main.py               # FastAPI App entrypoint, middleware, lifespan hooks
+    │   │
+    │   ├── api/                  # API routing layer
+    │   │   ├── __init__.py
+    │   │   └── v1/
+    │   │       ├── router.py     # Aggregator for all v1 feature endpoints
+    │   │       └── endpoints/
+    │   │           ├── disease.py    # Leaf disease image diagnosis endpoints
+    │   │           ├── advisory.py   # Smart irrigation advisory endpoints
+    │   │           ├── weather.py    # Weather & crop risk assessment endpoints
+    │   │           ├── assistant.py  # Gemini AI chatbot endpoints
+    │   │           └── health.py     # Database and Supabase connectivity checks
+    │   │
+    │   ├── core/                 # Configuration & Settings
+    │   │   ├── config.py         # Pydantic BaseSettings, env loader, startup warnings
+    │   │   └── supabase_config.py# Supabase client factory and credentials setup
+    │   │
+    │   ├── db/                   # Database engine & session management
+    │   │   ├── base.py           # SQLAlchemy DeclarativeBase
+    │   │   └── session.py        # Async engine, AsyncSessionLocal, init_db()
+    │   │
+    │   ├── models/               # SQLAlchemy Database ORM Models
+    │   │   ├── prediction_log.py # `prediction_logs` table (Image predictions)
+    │   │   └── advisory_log.py   # `advisory_logs` table (Irrigation queries)
+    │   │
+    │   ├── schemas/              # Pydantic validation & serialization schemas
+    │   │   ├── disease.py        # Disease prediction input/output schemas
+    │   │   └── advisory.py       # Advisory, Weather, and Assistant schemas
+    │   │
+    │   └── services/             # Core Business Logic & External Integrations
+    │       ├── model_service.py      # ML Model loader (ONNX/PyTorch/Keras/Mock)
+    │       ├── recommendation.py     # Agronomy rules & irrigation algorithms
+    │       ├── weather_service.py    # OpenWeatherMap API & weather simulation
+    │       └── labels.py             # 38 PlantVillage classes & treatment metadata
+    │
+    └── tests/                    # Automated testing suite
+        └── test_api.py           # 20+ automated pytest test cases
+
+
+--------------------------------------------------------------------------------
+5. API ENDPOINTS SUMMARY (એપીઆઈ એન્ડપોઇન્ટ્સ યાદી)
+--------------------------------------------------------------------------------
+
+[General & Health]
+  • GET  /                        Root endpoint with API status & docs links
+  • GET  /health                  System health, uptime, and inference mode
+  • GET  /api/v1/health/db        Database connection health check
+  • GET  /api/v1/health/supabase  Supabase service status check
+
+[Disease Detection]
+  • POST /api/v1/disease/predict  Upload leaf photo (multipart/form-data) -> returns
+                                  predicted disease, confidence, and treatment guide.
+  • GET  /api/v1/disease/classes  Returns list of all supported crop & disease classes.
+
+[Smart Advisory]
+  • POST /api/v1/advisory/recommend   Submit soil moisture, crop stage, temperature
+                                      -> returns custom irrigation & nutrient advice.
+
+[Weather Intelligence]
+  • GET  /api/v1/weather/current  Get current weather for a city/coordinates.
+  • POST /api/v1/weather/risk     Get 5-day forecast & agricultural risk analysis.
+
+[GenAI Farmer Assistant]
+  • POST /api/v1/assistant/query  Ask any agricultural question in natural language
+                                  (Supports regional languages + context retention).
+
+
+--------------------------------------------------------------------------------
+6. DATABASE SCHEMA (ડેટાબેઝ સ્કીમા વિગતો)
+--------------------------------------------------------------------------------
+
+TABLE 1: `prediction_logs`
+  • id             : UUID (Primary Key, default: uuid_generate_v4())
+  • filename       : String(255) — Uploaded image name
+  • crop_type      : String(100) — Detected crop (e.g. Tomato, Potato, Apple)
+  • predicted_class: String(150) — Full class name (e.g. Tomato___Early_blight)
+  • confidence     : Float — Model confidence percentage (0.0 to 100.0)
+  • inference_time : Float — Processing time in milliseconds (ms)
+  • is_healthy     : Boolean — Whether the plant is healthy or infected
+  • is_mock        : Boolean — True if mock inference was used
+  • created_at     : Timestamp (with timezone, default: utcnow)
+
+TABLE 2: `advisory_logs`
+  • id             : UUID (Primary Key, default: uuid_generate_v4())
+  • crop_type      : String(100) — Crop name
+  • growth_stage   : String(50) — Growth stage (vegetative, flowering, fruiting)
+  • soil_moisture  : Float — Soil moisture %
+  • temperature    : Float — Temperature in °C
+  • humidity       : Float — Humidity %
+  • irrigation_req : Boolean — Whether irrigation is needed
+  • water_quantity : Float — Recommended water amount in L/ha
+  • recommendation : Text — Full agronomic advice text
+  • created_at     : Timestamp (with timezone, default: utcnow)
+
+
+--------------------------------------------------------------------------------
+7. HOW TO RUN & DEPLOY (પ્રોજેક્ટ કેવી રીતે ચલાવવો)
+--------------------------------------------------------------------------------
+
+Step 1: Environment Setup
+  > cd backend
+  > python -m venv venv
+  > venv\Scripts\activate          (Windows)
+  > source venv/bin/activate       (Linux / macOS)
+
+Step 2: Install Dependencies
+  > pip install -r requirements.txt
+
+Step 3: Setup Configuration (.env)
+  > copy .env.example .env
+  (Optional: Add GEMINI_API_KEY, OPENWEATHER_API_KEY, SUPABASE credentials)
+
+Step 4: Launch Backend Server
+  > python run.py
+  OR
+  > uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+Step 5: Access Interactive API Documentation
+  • Swagger UI : http://localhost:8000/docs
+  • ReDoc      : http://localhost:8000/redoc
+  • Root API   : http://localhost:8000/
+
+Step 6: Run Automated Tests
+  > pytest -v
+
+
+--------------------------------------------------------------------------------
+8. KEY STRENGTHS & ARCHITECTURAL HIGHLIGHTS (મુખ્ય વિશેષતાઓ)
+--------------------------------------------------------------------------------
+1. Zero-Crash Fallback Design: The system is designed so that missing API keys
+   (Gemini, OpenWeather, or ML weights) will never crash the server. It smoothly
+   falls back to deterministic mock generators.
+2. Fully Asynchronous: Async database I/O, async HTTP calls, and non-blocking
+   FastAPI routes ensure high throughput and concurrency.
+3. Decoupled Architecture: Clear separation of concerns between API routers,
+   Pydantic schemas, ORM models, and business logic services.
+4. Production Ready: Built-in CORS, structured logging, health probes,
+   PostgreSQL/Supabase compatibility, and complete test coverage.
+
+
+--------------------------------------------------------------------------------
+9. FUTURE ROADMAP & RECOMMENDATIONS (ભાવિ આયોજન)
+--------------------------------------------------------------------------------
+1. Frontend Development: Build a modern, mobile-friendly React/Next.js or Flutter
+   app with camera access for one-touch leaf scanning.
+2. Voice & Audio Interface: Add Speech-to-Text (STT) and Text-to-Speech (TTS)
+   in regional languages (Hindi, Gujarati, Tamil, etc.) for illiterate farmers.
+3. IoT Hardware Integration: Connect soil moisture sensors and ESP32 microcontrollers
+   to feed live telemetry directly into `/api/v1/advisory/recommend`.
+4. Edge ML On-Device: Convert ONNX models to TensorFlow Lite (TFLite) for 100%
+   offline leaf scanning directly inside a mobile app without any internet connection.
+
+================================================================================
+                           END OF PROJECT ANALYSIS
+================================================================================

@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgriSmart AI — Test Interface</title>
+  <meta name="description" content="AgriSmart AI test interface: voice-to-text assistant and camera-based crop disease detection." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & base ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg1: #0f1117;
+      --bg2: #181c27;
+      --glass: rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.10);
+      --accent: #4ade80;
+      --accent2: #60a5fa;
+      --accent3: #f472b6;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --error: #f87171;
+      --card-radius: 16px;
+      --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    }
+    html { font-size: 16px; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg1);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+      background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(74,222,128,0.12), transparent),
+                        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(96,165,250,0.08), transparent);
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .header .logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.3rem;
+    }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .header p {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      margin-top: 0.4rem;
+    }
+
+    /* ── Tab bar ─────────────────────────────────────────────── */
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      padding: 0.3rem;
+      margin-bottom: 2rem;
+      width: 100%;
+      max-width: 480px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 0.55rem 1rem;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0f1117;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(74,222,128,0.25);
+    }
+    .tab-btn:not(.active):hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.07);
+    }
+
+    /* ── Panel ───────────────────────────────────────────────── */
+    .panel {
+      display: none;
+      width: 100%;
+      max-width: 640px;
+      flex-direction: column;
+      gap: 1.2rem;
+      animation: fadeIn 0.3s ease;
+    }
+    .panel.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--card-radius);
+      padding: 1.4rem;
+      backdrop-filter: blur(12px);
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Form controls ───────────────────────────────────────── */
+    label { font-size: 0.88rem; color: var(--text-dim); display: block; margin-bottom: 0.3rem; }
+    select {
+      width: 100%;
+      padding: 0.6rem 0.9rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      appearance: none;
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    select:focus { border-color: var(--accent); }
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: 0.75rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    textarea:focus { border-color: var(--accent2); }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.3rem;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      outline: none;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #22c55e);
+      color: #0f1117;
+      box-shadow: 0 4px 14px rgba(74,222,128,0.25);
+    }
+    .btn-primary:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,222,128,0.35); }
+    .btn-secondary {
+      background: rgba(96,165,250,0.15);
+      border: 1px solid rgba(96,165,250,0.35);
+      color: var(--accent2);
+    }
+    .btn-secondary:not(:disabled):hover { background: rgba(96,165,250,0.25); }
+    .btn-danger {
+      background: rgba(248,113,113,0.15);
+      border: 1px solid rgba(248,113,113,0.35);
+      color: var(--error);
+    }
+    .btn-danger:not(:disabled):hover { background: rgba(248,113,113,0.25); }
+    .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+    /* ── Mic pulse animation ─────────────────────────────────── */
+    @keyframes pulse-ring {
+      0%   { transform: scale(1);   opacity: 0.8; }
+      70%  { transform: scale(1.6); opacity: 0; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+    .mic-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mic-wrapper.active::before {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      background: var(--accent);
+      animation: pulse-ring 1.2s ease-out infinite;
+    }
+
+    /* ── Error / Status ──────────────────────────────────────── */
+    .error-msg { color: var(--error); font-size: 0.88rem; margin-top: 0.4rem; min-height: 1.2em; }
+    .status-msg { color: var(--text-dim); font-size: 0.88rem; margin-top: 0.4rem; }
+
+    /* ── Camera section ──────────────────────────────────────── */
+    .camera-area {
+      position: relative;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .camera-area video,
+    .camera-area canvas,
+    .camera-area img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+      border-radius: 12px;
+    }
+    .camera-area video.active,
+    .camera-area canvas.active,
+    .camera-area .preview-img.active { display: block; }
+    .camera-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.7rem;
+      color: var(--text-dim);
+      text-align: center;
+      padding: 1rem;
+    }
+    .camera-placeholder svg { opacity: 0.4; }
+    .camera-placeholder p { font-size: 0.9rem; }
+    .camera-area .camera-placeholder.hidden { display: none; }
+
+    /* ── Loading spinner ─────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: var(--text);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── File picker ─────────────────────────────────────────── */
+    .file-drop {
+      border: 2px dashed var(--glass-border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+      position: relative;
+    }
+    .file-drop:hover, .file-drop.drag-over { border-color: var(--accent2); background: rgba(96,165,250,0.06); }
+    .file-drop input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .file-drop p { color: var(--text-dim); font-size: 0.9rem; }
+    .file-drop p span { color: var(--accent2); font-weight: 600; }
+    #filePreview { width: 100%; border-radius: 10px; margin-top: 0.8rem; max-height: 200px; object-fit: contain; display: none; }
+
+    /* ── Divider ─────────────────────────────────────────────── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--glass-border);
+    }
+
+    /* ── Disease result card ─────────────────────────────────── */
+    .result-card { animation: fadeIn 0.4s ease; }
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .disease-name { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+    .crop-name { font-size: 0.88rem; color: var(--text-dim); margin-top: 0.15rem; }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-healthy { background: rgba(74,222,128,0.18); color: var(--accent); border: 1px solid rgba(74,222,128,0.35); }
+    .badge-unhealthy { background: rgba(248,113,113,0.18); color: var(--error); border: 1px solid rgba(248,113,113,0.35); }
+    .confidence-bar-wrap {
+      margin: 0.8rem 0;
+    }
+    .confidence-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+    .confidence-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .confidence-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    }
+    .section-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin: 1rem 0 0.5rem;
+    }
+    .precautions-list, .treatments-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .precautions-list li, .treatments-list li {
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-start;
+      font-size: 0.92rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .precautions-list li .step-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(74,222,128,0.15);
+      border: 1px solid rgba(74,222,128,0.3);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .treatments-list li::before {
+      content: '→';
+      color: var(--accent2);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── Voice response ──────────────────────────────────────── */
+    .voice-answer {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text);
+    }
+    .followup-item {
+      padding: 0.55rem 0.8rem;
+      border-radius: 8px;
+      background: rgba(96,165,250,0.08);
+      border: 1px solid rgba(96,165,250,0.18);
+      font-size: 0.88rem;
+      color: var(--text-dim);
+    }
+    .followup-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+
+    /* ── Scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">🌿 AgriSmart AI</div>
+    <h1>Farmer Intelligence Suite</h1>
+    <p>Voice assistant &amp; crop disease detection — test interface</p>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar" role="tablist">
+    <button class="tab-btn active" id="tab-voice" role="tab" aria-selected="true" aria-controls="panel-voice" onclick="switchTab('voice')">🎙️ Voice Assistant</button>
+    <button class="tab-btn" id="tab-camera" role="tab" aria-selected="false" aria-controls="panel-camera" onclick="switchTab('camera')">📷 Disease Detect</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       PANEL 1 — Voice Assistant
+  ══════════════════════════════════════════════════ -->
+  <section class="panel active" id="panel-voice" role="tabpanel" aria-labelledby="tab-voice">
+
+    <!-- Language select -->
+    <div class="card">
+      <div class="card-title">Language</div>
+      <label for="langSelect">Choose recognition language</label>
+      <select id="langSelect">
+        <option value="gu-IN">🇮🇳 Gujarati (gu-IN)</option>
+        <option value="hi-IN">🇮🇳 Hindi (hi-IN)</option>
+        <option value="en-IN">🇮🇳 English (en-IN)</option>
+      </select>
+    </div>
+
+    <!-- Microphone -->
+    <div class="card">
+      <div class="card-title">Microphone Input</div>
+      <div class="mic-wrapper" id="micWrapper">
+        <button class="btn btn-primary" id="toggleBtn" onclick="handleToggleMic()">
+          🎤 Start Listening
+        </button>
+      </div>
+      <div class="error-msg" id="voiceError"></div>
+      <label for="transcript" style="margin-top:0.9rem;">Live transcript</label>
+      <textarea id="transcript" placeholder="Speak — your query will appear here…" readonly></textarea>
+    </div>
+
+    <!-- Send -->
+    <div class="card">
+      <div class="card-title">Query</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="sendBtn" disabled onclick="sendVoiceQuery()">
+          ✉️ Send Query
+        </button>
+        <button class="btn btn-danger" id="clearVoiceBtn" onclick="clearVoice()">
+          🗑 Clear
+        </button>
+      </div>
+      <div class="status-msg" id="voiceStatus"></div>
+    </div>
+
+    <!-- Response -->
+    <div class="card result-card" id="voiceResponseCard" style="display:none;">
+      <div class="card-title">Answer</div>
+      <div class="voice-answer" id="voiceAnswer"></div>
+      <div id="followUpSection" style="display:none;">
+        <div class="section-label">Follow-up questions</div>
+        <div class="followup-list" id="followUpList"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       PANEL 2 — Disease Detection
+  ══════════════════════════════════════════════════ -->
+  <section class="panel" id="panel-camera" role="tabpanel" aria-labelledby="tab-camera">
+
+    <!-- Camera stream -->
+    <div class="card">
+      <div class="card-title">Camera Capture</div>
+      <div class="camera-area" id="cameraArea">
+        <div class="camera-placeholder" id="cameraPlaceholder">
+          <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <p>Click <strong>Open Camera</strong> to start the live feed</p>
+        </div>
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <canvas id="cameraCanvas"></canvas>
+        <img id="previewImg" class="preview-img" alt="Captured photo preview" />
+      </div>
+      <div class="error-msg" id="cameraError"></div>
+
+      <div class="btn-row" style="margin-top:0.9rem;">
+        <button class="btn btn-primary" id="openCameraBtn" onclick="openCamera()">📷 Open Camera</button>
+        <button class="btn btn-secondary" id="captureBtn" disabled onclick="capturePhoto()">📸 Capture Photo</button>
+        <button class="btn btn-danger" id="retakeBtn" style="display:none;" onclick="retakePhoto()">↩ Retake</button>
+      </div>
+    </div>
+
+    <!-- File upload fallback -->
+    <div class="divider">or upload a saved image</div>
+
+    <div class="card">
+      <div class="card-title">File Upload</div>
+      <div class="file-drop" id="fileDrop">
+        <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)" />
+        <p>📁 <span>Browse</span> or drag &amp; drop a leaf image here</p>
+      </div>
+      <img id="filePreview" alt="Uploaded image preview" />
+    </div>
+
+    <!-- Analyse -->
+    <div class="card">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="analyseBtn" disabled onclick="analyseDisease()">
+          🔬 Analyse Disease
+        </button>
+        <button class="btn btn-danger" id="clearCameraBtn" onclick="clearCamera()">🗑 Clear</button>
+      </div>
+      <div class="status-msg" id="cameraStatus"></div>
+    </div>
+
+    <!-- Disease result -->
+    <div class="card result-card" id="diseaseResultCard" style="display:none;">
+      <div class="card-title">Detection Result</div>
+
+      <div class="result-header">
+        <div>
+          <div class="disease-name" id="diseaseName"></div>
+          <div class="crop-name" id="cropName"></div>
+        </div>
+        <span class="badge" id="healthBadge"></span>
+      </div>
+
+      <div class="confidence-bar-wrap">
+        <div class="confidence-label">
+          <span>Confidence</span>
+          <span id="confidencePct"></span>
+        </div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" id="confidenceFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Precautions</div>
+      <ol class="precautions-list" id="precautionsList"></ol>
+
+      <div class="section-label">Treatment Recommendations</div>
+      <ul class="treatments-list" id="treatmentsList"></ul>
+    </div>
+
+  </section>
+
+  <script>
+  /* ════════════════════════════════════════════════════════════
+     TAB SWITCHING
+  ════════════════════════════════════════════════════════════ */
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.id === 'tab-' + tab);
+      b.setAttribute('aria-selected', b.id === 'tab-' + tab);
+    });
+    document.querySelectorAll('.panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'panel-' + tab);
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     VOICE ASSISTANT
+  ════════════════════════════════════════════════════════════ */
+  let recognizing = false;
+  let recognition = null;
+  let finalTranscript = '';
+
+  const toggleBtn       = document.getElementById('toggleBtn');
+  const sendBtn         = document.getElementById('sendBtn');
+  const transcriptEl    = document.getElementById('transcript');
+  const langSelect      = document.getElementById('langSelect');
+  const voiceError      = document.getElementById('voiceError');
+  const voiceStatus     = document.getElementById('voiceStatus');
+  const micWrapper      = document.getElementById('micWrapper');
+  const voiceCard       = document.getElementById('voiceResponseCard');
+  const voiceAnswer     = document.getElementById('voiceAnswer');
+  const followUpSection = document.getElementById('followUpSection');
+  const followUpList    = document.getElementById('followUpList');
+
+  function initRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      voiceError.textContent = '⚠️ Web Speech API is not supported in this browser. Try Chrome or Edge.';
+      toggleBtn.disabled = true;
+      return false;
+    }
+    recognition = new SR();
+    recognition.lang = langSelect.value;
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      recognizing = true;
+      toggleBtn.innerHTML = '⏹ Stop Listening';
+      toggleBtn.classList.replace('btn-primary', 'btn-danger');
+      micWrapper.classList.add('active');
+      voiceError.textContent = '';
+      voiceStatus.textContent = '🔴 Listening…';
+    };
+    recognition.onerror = (e) => {
+      voiceError.textContent = '⚠️ ' + e.error + (e.error === 'not-allowed' ? ' — please allow microphone access.' : '');
+      stopRecognition();
+    };
+    recognition.onend = () => {
+      recognizing = false;
+      toggleBtn.innerHTML = '🎤 Start Listening';
+      toggleBtn.classList.replace('btn-danger', 'btn-primary');
+      micWrapper.classList.remove('active');
+      voiceStatus.textContent = finalTranscript ? '✅ Ready to send.' : '';
+      if (finalTranscript.trim()) sendBtn.disabled = false;
+    };
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const r = event.results[i];
+        if (r.isFinal) finalTranscript += r[0].transcript + ' '; else interim += r[0].transcript;
+      }
+      transcriptEl.value = finalTranscript + interim;
+      if (finalTranscript.trim()) sendBtn.disabled = false;
+    };
+    return true;
+  }
+
+  function startRecognition() {
+    if (!recognition && !initRecognition()) return;
+    recognition.lang = langSelect.value;
+    finalTranscript = '';
+    transcriptEl.value = '';
+    sendBtn.disabled = true;
+    try { recognition.start(); } catch (e) { voiceError.textContent = 'Failed to start: ' + e.message; }
+  }
+
+  function stopRecognition() {
+    if (recognition && recognizing) recognition.stop();
+  }
+
+  function handleToggleMic() {
+    recognizing ? stopRecognition() : startRecognition();
+  }
+
+  function clearVoice() {
+    stopRecognition();
+    finalTranscript = '';
+    transcriptEl.value = '';
+    sendBtn.disabled = true;
+    voiceCard.style.display = 'none';
+    voiceError.textContent = '';
+    voiceStatus.textContent = '';
+  }
+
+  async function sendVoiceQuery() {
+    const query = transcriptEl.value.trim();
+    if (!query) return;
+    sendBtn.disabled = true;
+    voiceStatus.innerHTML = '<span class="spinner"></span> Sending query…';
+    voiceCard.style.display = 'none';
+    voiceError.textContent = '';
+
+    try {
+      const resp = await fetch('http://localhost:8000/api/v1/assistant/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+          query: query,
+          language: langSelect.value.split('-')[0]
+        })
+      });
+      if (!resp.ok) throw new Error('Server responded ' + resp.status);
+      const data = await resp.json();
+
+      voiceAnswer.innerHTML = (data.answer || 'No answer received.').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      followUpList.innerHTML = '';
+      if (Array.isArray(data.follow_up_questions) && data.follow_up_questions.length) {
+        data.follow_up_questions.forEach(q => {
+          const div = document.createElement('div');
+          div.className = 'followup-item';
+          div.textContent = q;
+          followUpList.appendChild(div);
+        });
+        followUpSection.style.display = 'block';
+      } else {
+        followUpSection.style.display = 'none';
+      }
+
+      voiceCard.style.display = 'block';
+      voiceStatus.textContent = '✅ Response received.';
+    } catch (e) {
+      voiceError.textContent = '⚠️ Request failed: ' + e.message;
+      voiceStatus.textContent = '';
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     DISEASE DETECTION — CAMERA
+  ════════════════════════════════════════════════════════════ */
+  const cameraVideo   = document.getElementById('cameraVideo');
+  const cameraCanvas  = document.getElementById('cameraCanvas');
+  const previewImg    = document.getElementById('previewImg');
+  const placeholder   = document.getElementById('cameraPlaceholder');
+  const openCameraBtn = document.getElementById('openCameraBtn');
+  const captureBtn    = document.getElementById('captureBtn');
+  const retakeBtn     = document.getElementById('retakeBtn');
+  const analyseBtn    = document.getElementById('analyseBtn');
+  const cameraError   = document.getElementById('cameraError');
+  const cameraStatus  = document.getElementById('cameraStatus');
+  const fileInput     = document.getElementById('fileInput');
+  const filePreview   = document.getElementById('filePreview');
+  const fileDrop      = document.getElementById('fileDrop');
+  const resultCard    = document.getElementById('diseaseResultCard');
+
+  let cameraStream    = null;
+  let capturedBlob    = null;   // from camera snapshot
+  let uploadedFile    = null;   // from file picker
+
+  /* -- Camera open ------------------------------------------- */
+  async function openCamera() {
+    cameraError.textContent = '';
+    cameraStatus.textContent = '';
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false
+      });
+      cameraVideo.srcObject = cameraStream;
+      placeholder.classList.add('hidden');
+      cameraVideo.classList.add('active');
+      cameraCanvas.classList.remove('active');
+      previewImg.classList.remove('active');
+
+      openCameraBtn.disabled = true;
+      captureBtn.disabled = false;
+      retakeBtn.style.display = 'none';
+      capturedBlob = null;
+      updateAnalyseBtn();
+    } catch (e) {
+      const msgs = {
+        NotAllowedError:  '⚠️ Camera access denied. Allow camera permission and try again.',
+        NotFoundError:    '⚠️ No camera found on this device.',
+        OverconstrainedError: '⚠️ Camera constraints not satisfiable. Try a different device.',
+      };
+      cameraError.textContent = msgs[e.name] || '⚠️ Camera error: ' + e.message;
+    }
+  }
+
+  /* -- Capture snapshot -------------------------------------- */
+  function capturePhoto() {
+    if (!cameraStream) return;
+    const w = cameraVideo.videoWidth  || 640;
+    const h = cameraVideo.videoHeight || 480;
+    cameraCanvas.width  = w;
+    cameraCanvas.height = h;
+    const ctx = cameraCanvas.getContext('2d');
+    ctx.drawImage(cameraVideo, 0, 0, w, h);
+
+    cameraCanvas.toBlob(blob => {
+      capturedBlob = blob;
+      uploadedFile = null;
+      filePreview.style.display = 'none';
+
+      // Show snapshot in <img> instead of canvas for better compatibility
+      const url = URL.createObjectURL(blob);
+      previewImg.src = url;
+      previewImg.classList.add('active');
+      cameraVideo.classList.remove('active');
+      cameraCanvas.classList.remove('active');
+
+      // Stop stream
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+
+      captureBtn.disabled = true;
+      openCameraBtn.disabled = false;
+      retakeBtn.style.display = 'inline-flex';
+      cameraStatus.textContent = '📸 Photo captured. Click Analyse Disease.';
+      updateAnalyseBtn();
+    }, 'image/jpeg', 0.92);
+  }
+
+  /* -- Retake ------------------------------------------------ */
+  function retakePhoto() {
+    previewImg.classList.remove('active');
+    placeholder.classList.remove('hidden');
+    retakeBtn.style.display = 'none';
+    captureBtn.disabled = true;
+    capturedBlob = null;
+    cameraStatus.textContent = '';
+    resultCard.style.display = 'none';
+    updateAnalyseBtn();
+    openCamera();
+  }
+
+  /* -- File upload ------------------------------------------- */
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadedFile = file;
+    capturedBlob = null;
+    previewImg.classList.remove('active');
+    const url = URL.createObjectURL(file);
+    filePreview.src = url;
+    filePreview.style.display = 'block';
+    cameraStatus.textContent = '📁 File selected. Click Analyse Disease.';
+    updateAnalyseBtn();
+  }
+
+  /* Drag-and-drop */
+  fileDrop.addEventListener('dragover', e => { e.preventDefault(); fileDrop.classList.add('drag-over'); });
+  fileDrop.addEventListener('dragleave', () => fileDrop.classList.remove('drag-over'));
+  fileDrop.addEventListener('drop', e => {
+    e.preventDefault();
+    fileDrop.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      uploadedFile = file;
+      capturedBlob = null;
+      filePreview.src = URL.createObjectURL(file);
+      filePreview.style.display = 'block';
+      cameraStatus.textContent = '📁 File ready. Click Analyse Disease.';
+      updateAnalyseBtn();
+    }
+  });
+
+  function updateAnalyseBtn() {
+    analyseBtn.disabled = !(capturedBlob || uploadedFile);
+  }
+
+  /* -- Clear ------------------------------------------------- */
+  function clearCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+    capturedBlob = null;
+    uploadedFile = null;
+    previewImg.classList.remove('active');
+    previewImg.src = '';
+    cameraVideo.classList.remove('active');
+    placeholder.classList.remove('hidden');
+    fileInput.value = '';
+    filePreview.style.display = 'none';
+    retakeBtn.style.display = 'none';
+    captureBtn.disabled = true;
+    openCameraBtn.disabled = false;
+    cameraError.textContent = '';
+    cameraStatus.textContent = '';
+    resultCard.style.display = 'none';
+    updateAnalyseBtn();
+  }
+
+  /* -- Analyse ----------------------------------------------- */
+  async function analyseDisease() {
+    const source = capturedBlob || uploadedFile;
+    if (!source) return;
+
+    analyseBtn.disabled = true;
+    analyseBtn.innerHTML = '<span class="spinner"></span> Analysing…';
+    cameraError.textContent = '';
+    cameraStatus.textContent = '';
+    resultCard.style.display = 'none';
+
+    const formData = new FormData();
+    const filename = capturedBlob ? 'snapshot.jpg' : (uploadedFile ? uploadedFile.name : 'image.jpg');
+    formData.append('file', source, filename);
+
+    try {
+      const resp = await fetch('http://localhost:8000/api/v1/disease/predict', {
+        method: 'POST',
+        body: formData
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Server returned ${resp.status}: ${errText}`);
+      }
+      const data = await resp.json();
+      renderDiseaseResult(data);
+      cameraStatus.textContent = '✅ Analysis complete.';
+    } catch (e) {
+      cameraError.textContent = '⚠️ Analysis failed: ' + e.message;
+    } finally {
+      analyseBtn.disabled = false;
+      analyseBtn.innerHTML = '🔬 Analyse Disease';
+      updateAnalyseBtn();
+    }
+  }
+
+  /* -- Render result ----------------------------------------- */
+  function renderDiseaseResult(data) {
+    /* Defensive helpers */
+    const get  = (obj, ...keys) => keys.reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj);
+    const pct  = (v) => Math.round((v || 0) * 100);
+
+    document.getElementById('diseaseName').textContent =
+      get(data, 'disease_display_name') || get(data, 'disease') || get(data, 'prediction') || 'Unknown';
+
+    document.getElementById('cropName').textContent =
+      get(data, 'crop_name') || get(data, 'crop') || '';
+
+    const confidence = get(data, 'confidence') ?? get(data, 'confidence_score') ?? 0;
+    const confVal = typeof confidence === 'number' && confidence <= 1 ? pct(confidence) : Math.round(confidence);
+    document.getElementById('confidencePct').textContent = confVal + '%';
+    setTimeout(() => { document.getElementById('confidenceFill').style.width = confVal + '%'; }, 50);
+
+    const healthy = !!(get(data, 'is_healthy') ?? get(data, 'healthy'));
+    const badge   = document.getElementById('healthBadge');
+    if (healthy) {
+      badge.textContent = '✅ Healthy';
+      badge.className = 'badge badge-healthy';
+    } else {
+      badge.textContent = '⚠️ Diseased';
+      badge.className = 'badge badge-unhealthy';
+    }
+
+    /* Precautions */
+    const precs = get(data, 'precautions') || get(data, 'prevention') || [];
+    const precList = document.getElementById('precautionsList');
+    precList.innerHTML = '';
+    (Array.isArray(precs) ? precs : [precs]).filter(Boolean).forEach((item, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="step-num">${i + 1}</span><span>${item}</span>`;
+      precList.appendChild(li);
+    });
+
+    /* Treatments */
+    const treats = get(data, 'recommendations') || get(data, 'treatment') || get(data, 'treatments') || [];
+    const treatList = document.getElementById('treatmentsList');
+    treatList.innerHTML = '';
+    (Array.isArray(treats) ? treats : [treats]).filter(Boolean).forEach(item => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${item}</span>`;
+      treatList.appendChild(li);
+    });
+
+    resultCard.style.display = 'block';
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  </script>
+</body>
+</html>

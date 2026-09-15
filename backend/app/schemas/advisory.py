@@ -275,6 +275,7 @@ class SupportedLanguage(str, Enum):
     MARATHI = "mr"
     BENGALI = "bn"
     PUNJABI = "pa"
+    GUJARATI = "gu"
 
 
 class AssistantRequest(BaseModel):

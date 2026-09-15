@@ -1,6 +1,20 @@
-.env
-backend/.env
+﻿# Python
 venv/
 __pycache__/
-*.db
+*.pyc
 .pytest_cache/
+
+# Environment Variables (Sensitive)
+.env
+.env.local
+
+# Node & Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+node_modules/
+.next/
+
+# OS Files
+.DS_Store
+Thumbs.db
